@@ -1,150 +1,59 @@
-import {getModelForClass, prop, PropType, Severity, modelOptions, setGlobalOptions} from '@typegoose/typegoose';
-import { IGlobalOptions } from '@typegoose/typegoose/lib/types';
-import * as mongoose from 'mongoose';
+import { getModelForClass, modelOptions, prop, setGlobalOptions } from '@typegoose/typegoose'; // @typegoose/typegoose@11.4.0
+import * as mongoose from 'mongoose'; // mongoose@7.4.0
 
-const typegooseGlobalOptions: IGlobalOptions = {
+setGlobalOptions({
   schemaOptions: {
     strict: 'throw'
-  },
-  // warn about mixed by default
-  options: {
-    allowMixed: Severity.WARN
   }
-};
+})
 
-setGlobalOptions(typegooseGlobalOptions);
+@modelOptions({ schemaOptions: { _id: false } })
+class ObjSchema {}
 
-// Define the sub-schema
-class EmptySchema {}
-
-// Define the user management sub-schema
+@modelOptions({ schemaOptions: { _id: false, minimize: false } })
 class UserManagement {
-  @prop({ _id: false })
-  permissions_management?: EmptySchema;
+  @prop()
+  public permissions_management?: ObjSchema;
 
-  @prop({ _id: false })
-  acc_permission?: EmptySchema;
+  @prop()
+  public acc_permissions?: ObjSchema;
 
-  @prop({ _id: false })
-  qaa_permission?: EmptySchema;
+  @prop()
+  public qaa_permissions?: ObjSchema;
 }
 
-// Define the main schema
-class UsersPermissions {
-  @prop({ _id: false })
-  superAdmin?: EmptySchema;
+@modelOptions({ schemaOptions: { minimize: false } })
+class UserPermissions {
+  @prop()
+  public superAdmin?: ObjSchema;
 
-  @prop({ _id: false })
-  settings?: EmptySchema;
+  @prop()
+  public settings?: ObjSchema;
 
-  @prop({ _id: false, type: () => UserManagement })
-  user_management?: UserManagement;
+  @prop()
+  public user_management?: UserManagement;
 }
 
-const UserPermissionsModel = getModelForClass(UsersPermissions, {
-  schemaOptions: {
-    minimize: false,
-  }
-});
+const UserPermissionsModel = getModelForClass(UserPermissions);
 
 async function main() {
-  try {
-    await mongoose.connect('mongodb://localhost:27017/', {dbName: 'test-empty-object'});
+  await mongoose.connect(`mongodb://localhost:27017/test-from-guy`);
 
-    // will fail, 'cause of StrictModeError
-    const uP = new UserPermissionsModel({
-      superAdmin: {
-        a: 1
-      },
-      settings: {
-        b: 2
-      },
-      user_management: {
-        permissions_management: {
-          a: 1
-        },
-        acc_permission: {
-          b: 1
-        },
-        qaa_permission: {
-          a: 'v'
-        }
-      }
-    })
+  const doc = await UserPermissionsModel.create({ superAdmin: { a: 'hello' }, settings: { b: 'sdf' }, user_management: { acc_permissions: { b: 'hello' } } });
 
-    await uP.save();
+  console.log('doc', doc);
 
-    process.exit(0);
-  } catch (err) {
-    console.log('err', err);
-    process.exit(1);
-  }
+  const found = await UserPermissionsModel.findById(doc).orFail();
+
+  console.log('found', found);
+
+  found.settings = { c: 'hello' };
+
+  await found.save();
+
+  console.log('found save', found);
+
+  await mongoose.disconnect();
 }
 
-// main();
-
-// Define the user management sub-schema
-class UserManagementOther {
-  @prop({ _id: false, set: () => { return {} } })
-  permissions_management?: Record<string, never>;
-
-  @prop({ _id: false, set: () => { return {} } })
-  acc_permission?: Record<string, never>;
-
-  @prop({ _id: false, set: () => { return {} } })
-  qaa_permission?: Record<string, never>;
-}
-
-// Define the main schema
-class UsersPermissionsOther {
-  @prop({ _id: false, set: () => { return {} } })
-  superAdmin?: Record<string, never>;
-
-  @prop({ _id: false, set: () => { return {} } })
-  settings?: Record<string, never>;
-
-  @prop({ _id: false, type: () => UserManagementOther })
-  user_management?: UserManagementOther;
-}
-
-const UserPermissionsModelOther = getModelForClass(UsersPermissionsOther, {
-  schemaOptions: {
-    minimize: false,
-  }
-});
-
-async function mainOther() {
-  try {
-    await mongoose.connect('mongodb://localhost:27017/', {dbName: 'test-empty-object-other'});
-
-    // will not fail, but user_management is an empty object with missing permissions_management, acc_permission, ...
-    const uP = new UserPermissionsModelOther({
-      superAdmin: {
-        a: 1
-      },
-      settings: {
-        b: 2
-      },
-      user_management: {
-        permissions_management: {
-          a: 1
-        },
-        acc_permission: {
-          b: 1
-        },
-        qaa_permission: {
-          a: 'v'
-        }
-      }
-    })
-
-    await uP.save();
-
-    process.exit(0);
-  } catch (err) {
-    console.log('err', err);
-    process.exit(1);
-  }
-}
-
-mainOther();
+main();
